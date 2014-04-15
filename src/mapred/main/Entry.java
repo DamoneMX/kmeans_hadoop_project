@@ -11,13 +11,7 @@ public class Entry {
 
 		long start = System.currentTimeMillis();
 
-		if (program.equals("hashtagsim"))
-			mapred.hashtagsim.Driver.main(args);
-		
-		else if (program.equals("ngramcount"))
-			mapred.ngramcount.Driver.main(args);
-
-		else if(program.equals("kmeans"))
+		if(program.equals("kmeans"))
 			mapred.kmeans.KmeansDriver.main(args);
 		
 		else if(program.equals("wordcount"))

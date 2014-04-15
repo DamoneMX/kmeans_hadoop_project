@@ -25,30 +25,30 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-public class KmeansMapper extends Mapper<LongWritable, Text, Text, FloatWritable>{
+public class KmeansMapper extends Mapper<LongWritable, Text, Text, FloatWritable> {
     
     private HashMap<String,ArrayList<Float>> meansCluster= new HashMap<String,ArrayList<Float>>();
     
     public void map(LongWritable key, Text value, Context output, Reporter reporter) throws IOException, InterruptedException {
-    	System.out.println("map this");
-    	//setto arraylist coordinate    
-      ArrayList<String> coordinate= new ArrayList<String>();
+      System.out.println("map this");
+      //setto arraylist coordinate    
+      ArrayList<String> coordinate = new ArrayList<String>();
       StringTokenizer itr = new StringTokenizer(value.toString());
-      String key_add=itr.nextElement().toString();
+      String key_add      = itr.nextElement().toString();
      
       double[] array = new double[25];
       int k=0;
       
-      Text word= new Text(key_add);
-      Text out= new Text();
-      FloatWritable f= new FloatWritable();
+      Text word = new Text(key_add);
+      Text out  = new Text();
+      FloatWritable f = new FloatWritable();
        
       while (itr.hasMoreTokens()) {
           coordinate.add(itr.nextToken().toString());
           //output.write(new Text(word),new Text(itr.nextToken().toString()));
           //ff.set(new Float(itr.nextToken().toString()));
           
-        //  vw.set(itr.nextToken().toString()));
+          //  vw.set(itr.nextToken().toString()));
           array[k]=Double.parseDouble(itr.nextToken().toString());
           out.set(itr.nextToken().toString());
           f.set(Float.parseFloat(itr.nextToken().toString()));
@@ -65,8 +65,8 @@ public class KmeansMapper extends Mapper<LongWritable, Text, Text, FloatWritable
    public void setup(Context context){
 	   System.out.println("setup");
 	   try {
-		   ByteArrayOutputStream byte1=new ByteArrayOutputStream();
-	       PrintStream out2 = new PrintStream(byte1);
+               ByteArrayOutputStream byte1=new ByteArrayOutputStream();
+     	       PrintStream out2 = new PrintStream(byte1);
 	             
 	       String uri = "/user/unicondor/cluster/cluster";
 	       Configuration conf = new Configuration();
@@ -92,17 +92,16 @@ public class KmeansMapper extends Mapper<LongWritable, Text, Text, FloatWritable
 	    	   }
 	        
 	    	   //DEBUG
-		        Iterator iter=meansCluster.keySet().iterator();
-		        while (iter.hasNext()) {  
-		        	String key = iter.next().toString();  
-		            String value = meansCluster.get(key).toString();  
-		                		   
-		            System.out.println("CLUSTER: "+ key + " " + value);  
-		            System.out.println();
-		        }  
+		   Iterator iter=meansCluster.keySet().iterator();
+		   while (iter.hasNext()) {  
+		        String key = iter.next().toString();  
+		        String value = meansCluster.get(key).toString();  		                		   
+		        System.out.println("CLUSTER: "+ key + " " + value);  
+		        System.out.println();
+		   }  
 	       } 
 	       finally {
-	                IOUtils.closeStream(in);
+	         IOUtils.closeStream(in);
 	       }
 	   } catch (IOException e) {
 		   System.out.println("exception thrown");
@@ -116,10 +115,9 @@ public class KmeansMapper extends Mapper<LongWritable, Text, Text, FloatWritable
 	       double nearestDistance = Double.MAX_VALUE;
 	       double[] array_cluster = new double[25];
 	       int i=0;
-	       while (iter.hasNext()) {  
-	    	   
+	       while (iter.hasNext()) {  	    	   
 	    	   String key = iter.next().toString();
-		      array_cluster[i]= Double.parseDouble( meansCluster.get(key).toString());
+		   array_cluster[i]= Double.parseDouble( meansCluster.get(key).toString());
 	       }
 	       double distance = KmeansUtil.getEuclideanDistance( array_cluster, coord_point);
 	       return distance;

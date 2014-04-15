@@ -1,8 +1,0 @@
-Manifest-Version: 1.0
-Ant-Version: Apache Ant 1.8.2
-Created-By: 1.7.0_25-b30 (Oracle Corporation)
-Built-By: damonemx
-Main-Class: mapred.main.Entry
-Implementation-Version: 0.1-b1266
-Built-Date: 2014-04-14 01:02:23
-

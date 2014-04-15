@@ -1,9 +1,9 @@
 package mapred.test;
 
- import java.io.*;
+import java.io.*;
 import java.util.*;
 
- import mapred.util.SimpleParser;
+import mapred.util.SimpleParser;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.conf.*;

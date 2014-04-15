@@ -20,20 +20,16 @@ public class KmeansReducer extends Reducer<Text,FloatWritable,Text,Text> {
     private Text result = new Text();
 
     public void reduce(Text key, Iterator<FloatWritable> values, Context context) throws IOException, InterruptedException {
-      //Text sum = new Text();
-     // for (Text val : values) {
-       // sum = val;
-     // }
-     // result.set(sum);
-     Text prova= new Text();
+        //Text sum = new Text();
+        // for (Text val : values) {
+        // sum = val;
+        // }
+        // result.set(sum);
+        Text prova= new Text();
     	
     	while(values.hasNext()){
-    	
-    		prova.set(prova + " " +Float.toString(values.next().get()));
+    	        prova.set(prova + " " + Float.toString(values.next().get()));
     	}
-    
-    	
-      context.write(key, prova);
-    }
-    
+        context.write(key, prova);
+    }    
   }
