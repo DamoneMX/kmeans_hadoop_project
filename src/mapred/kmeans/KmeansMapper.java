@@ -1,126 +1,105 @@
 package mapred.kmeans;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.StringTokenizer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Vector;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.FloatWritable;
-import org.apache.hadoop.io.ArrayWritable;
-import org.apache.hadoop.io.WritableComparable;
-import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.fs.*;
 
-public class KmeansMapper extends Mapper<LongWritable, Text, Text, FloatWritable> {
+import mapred.util.Tokenizer;
+import mapred.filesystem.CommonFileOperations;
+
+
+public class KmeansMapper extends Mapper<LongWritable, Text, LongWritable, Text> {
     
-    private HashMap<String,ArrayList<Float>> meansCluster= new HashMap<String,ArrayList<Float>>();
+  private HashMap<Long, Vector> clustersMap = new HashMap<Long, Vector>();
+
+  @Override
+  public void map(LongWritable key, Text value, Context output) throws IOException, InterruptedException {
+
+    //System.out.println("-- inside mapper function : map");  
+    //System.out.println("-- value: " + value);
+
+    // input text clusterId \t pointId,x,y 
+    String [] token = Tokenizer.tokenize(value.toString(), ",");
+    String [] tt    = Tokenizer.tokenize(token[0],"\t");
+    //for (int i=0; i<token.length; ++i) {
+    //  System.out.println(" -- " + token[i]);
+    //}
+    LongWritable currClusterId = new LongWritable(Long.parseLong(tt[0]));
+    LongWritable newClusterId  = getNearestCluster(Double.parseDouble(token[1]),
+                                                   Double.parseDouble(token[2]));
+    //if (currClusterId.get() != newClusterId.get()) {
+    //  System.out.println(" -- found change:" + currClusterId.toString() + " " + newClusterId.toString());      
+    //}
+    output.write(newClusterId, value);
+  }
     
-    public void map(LongWritable key, Text value, Context output, Reporter reporter) throws IOException, InterruptedException {
-      System.out.println("map this");
-      //setto arraylist coordinate    
-      ArrayList<String> coordinate = new ArrayList<String>();
-      StringTokenizer itr = new StringTokenizer(value.toString());
-      String key_add      = itr.nextElement().toString();
-     
-      double[] array = new double[25];
-      int k=0;
-      
-      Text word = new Text(key_add);
-      Text out  = new Text();
-      FloatWritable f = new FloatWritable();
-       
-      while (itr.hasMoreTokens()) {
-          coordinate.add(itr.nextToken().toString());
-          //output.write(new Text(word),new Text(itr.nextToken().toString()));
-          //ff.set(new Float(itr.nextToken().toString()));
-          
-          //  vw.set(itr.nextToken().toString()));
-          array[k]=Double.parseDouble(itr.nextToken().toString());
-          out.set(itr.nextToken().toString());
-          f.set(Float.parseFloat(itr.nextToken().toString()));
-          output.write(new Text(out),f );
-          k++;
+  @Override
+  public void setup(Context context) throws IOException, InterruptedException {
+
+    //read all cluster files and store them the clusters map
+    //System.out.println(" -- inside mapper function: setup");
+    String currClusters = context.getConfiguration().get("currClusters");
+    //read all sequence files in that directory
+    
+    super.setup(context);
+    Configuration cfg = context.getConfiguration();
+    String clustersPath = cfg.get("preBase") + "/" + cfg.get("clustersDir");
+    String [] currClusterFiles = CommonFileOperations.listAllFiles(clustersPath, null, false, new String());
+    FileSystem fs = FileSystem.get(cfg);
+    for (int i = 0; i < currClusterFiles.length; ++i) {  
+      Path centroidFile = new Path(currClusterFiles[i]);
+      try (SequenceFile.Reader reader = new SequenceFile.Reader(fs, centroidFile, cfg)) {
+        LongWritable key   = new LongWritable();
+        Text         value = new Text();
+        while (reader.next(key, value)) {
+          String [] numbers = Tokenizer.tokenize(value.toString()," ");
+          Vector vec = new Vector();
+          vec.add(Double.parseDouble(numbers[0]));
+          vec.add(Double.parseDouble(numbers[1]));
+          clustersMap.put(new Long(key.get()), vec);
+        }
       }
-      
-      //System.out.println("Key: "+ key_add + "Coord: "+ coordinate.toString());
-      double a = PointToNearestCluster(array);
-      System.out.println("Distance " + a);
     }
     
-   @Override
-   public void setup(Context context){
-	   System.out.println("setup");
-	   try {
-               ByteArrayOutputStream byte1=new ByteArrayOutputStream();
-     	       PrintStream out2 = new PrintStream(byte1);
-	             
-	       String uri = "/user/unicondor/cluster/cluster";
-	       Configuration conf = new Configuration();
-	       FileSystem fs = FileSystem.get(conf);
-	       fs.setDefaultUri(conf, uri);
-	       FSDataInputStream in = null;
-	       try {
-	    	   in = fs.open(new Path(uri));
-	    	   IOUtils.copyBytes(in, out2, 4096, false);
-	    	   String s=byte1.toString();
-	        
-	    	   String lines[]= s.split("\n");
-	    	   for(int i=0; i<lines.length; i++){
-	    		   ArrayList<Float> centers = new ArrayList<Float>();
-	    		   StringTokenizer itr = new StringTokenizer(lines[i]);
-	    		   String id_cluster= itr.nextElement().toString();
-	                    
-		            while(itr.hasMoreElements()){
-		            	centers.add(Float.parseFloat(itr.nextElement().toString()));
-		            }
-	            
-		            meansCluster.put(id_cluster, centers);
-	    	   }
-	        
-	    	   //DEBUG
-		   Iterator iter=meansCluster.keySet().iterator();
-		   while (iter.hasNext()) {  
-		        String key = iter.next().toString();  
-		        String value = meansCluster.get(key).toString();  		                		   
-		        System.out.println("CLUSTER: "+ key + " " + value);  
-		        System.out.println();
-		   }  
-	       } 
-	       finally {
-	         IOUtils.closeStream(in);
-	       }
-	   } catch (IOException e) {
-		   System.out.println("exception thrown");
-		   e.printStackTrace();
-	   }
-   }
-   
-   public double PointToNearestCluster(double[] coord_point) throws IOException {
-	   System.out.println("point to nearest");
-	       Iterator iter=meansCluster.keySet().iterator(); 
-	       double nearestDistance = Double.MAX_VALUE;
-	       double[] array_cluster = new double[25];
-	       int i=0;
-	       while (iter.hasNext()) {  	    	   
-	    	   String key = iter.next().toString();
-		   array_cluster[i]= Double.parseDouble( meansCluster.get(key).toString());
-	       }
-	       double distance = KmeansUtil.getEuclideanDistance( array_cluster, coord_point);
-	       return distance;
-   }
+    //DEBUG
+    Iterator iter = clustersMap.entrySet().iterator(); 
+    while (iter.hasNext()) {             
+      Map.Entry<Long, Vector> pair = (Map.Entry<Long, Vector>) iter.next();
+      Vector xy = pair.getValue();
+      Double x  = (Double) xy.get(0);
+      Double y  = (Double) xy.get(1);
+      System.out.println("CLUSTER: "+ pair.getKey().toString() + " " + x.toString() + " " + y.toString());  
+    }
 
+
+  }
+   
+  public LongWritable getNearestCluster(Double x, Double y) throws IOException {
+    //System.out.println("-- inside mapper function: PointToNearestCluster");
+    Iterator iter = clustersMap.entrySet().iterator(); 
+    double distance = Double.MAX_VALUE;
+    Long clusterId = new Long(-1);
+    while (iter.hasNext()) {             
+      Map.Entry<Long, Vector> pair = (Map.Entry<Long, Vector>) iter.next();
+      Vector xy = pair.getValue();
+      double xc = ((Double) xy.get(0)).doubleValue();
+      double yc = ((Double) xy.get(1)).doubleValue();
+      double test = (x-xc) * (x-xc) + (y-yc) * (y-yc);
+      if (test < distance) {
+        distance = test;
+        clusterId = pair.getKey();
+      }
+    }
+    return new LongWritable(clusterId);
+  }
 }

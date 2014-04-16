@@ -4,8 +4,9 @@ public class Tokenizer {
 
 	static String URL_PATTERN = "\\b(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]\\b";
 	
-	public static String[] tokenize(String line) {
-		return removePatterns(line).split("\\s+");
+	public static String[] tokenize(String line, String pattern) {
+		return line.split(pattern);
+		//return removePatterns(line).split(pattern);
 	}
 	
 	public static String removePatterns(String line) {
@@ -30,5 +31,4 @@ public class Tokenizer {
 		
 		return l1;
 	}
-
 }

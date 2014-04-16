@@ -143,7 +143,7 @@ public class CommonFileOperations {
    * @return  The files in the directory that matches the pattern
    * @throws IOException  Anything bad
    */
-  public static String[] listAllFiles(String dir, String pattern, boolean subdir) throws IOException{
+  public static String[] listAllFiles(String dir, String pattern, boolean subdir, String ignore) throws IOException{
     
     Pattern pat = null;
     
@@ -156,10 +156,11 @@ public class CommonFileOperations {
     
     for(FileStatus f : ft){
       if(f.isDir() && subdir){
-        String[] partial = listAllFiles(f.getPath().toString(),pattern,subdir);
+        String[] partial = listAllFiles(f.getPath().toString(),pattern,subdir, new String());
         if(partial == null) continue;
         for(String s : partial) allFiles.add(s);
       }else if(!f.isDir()){ // common file
+        if (!ignore.isEmpty() && f.getPath().toString().contains(ignore)) continue;
         if(pat == null){
           allFiles.add(f.getPath().toString());
         }else{

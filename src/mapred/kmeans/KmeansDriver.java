@@ -1,78 +1,68 @@
 package mapred.kmeans;
-import java.io.ByteArrayOutputStream;
-
-import java.io.IOException;
-
-import java.io.PrintStream;
-
-import java.util.Iterator;
-import java.util.StringTokenizer;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.lang.Float;
-
 
 //import org.apache.commons.httpclient.URI;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.*;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.LongWritable;
 
-import org.apache.hadoop.mapred.*;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.util.GenericOptionsParser;
+import mapred.job.Optimizedjob;
 import mapred.util.SimpleParser;
-//import org.apache.jasper.tagplugins.jstl.core.Set;
+import mapred.filesystem.CommonFileOperations;
 
 public class KmeansDriver {
 
-	public static void main(String[] args) throws Exception {
-		System.out.println("here goes");
-		
-		SimpleParser parser = new SimpleParser(args);
-
-		String input = parser.get("input");
-		String output = parser.get("output");
-		
-		System.out.println("Input: " + input + " Output: " + output);
-		
-		
-		Configuration conf = new Configuration();
-		/*
-		String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-		
-		if (otherArgs.length != 2) {
-			System.err.println("Usage: kmeans <in> <out>");
-			System.exit(2);
-		}
-		*/
-	  
-		Job job = new Job(conf,"Kmeans");
-		//mio
-		job.setJobName("Kmeans_Unicondor");
-		job.setJarByClass(KmeansDriver.class);
-		job.setMapperClass(KmeansMapper.class);
-		// job.setCombinerClass(IntSumReducer.class);
-		job.setReducerClass(KmeansReducer.class);
-		//  job.setInputFormatClass(TextInputFormat.class);
-		// job.setOutputFormat(SequenceFileOutputFormat.class);
-		job.setOutputKeyClass(Text.class);
-		job.setOutputValueClass(ArrayWritable.class);
-		job.setMapOutputKeyClass(Text.class);
-		job.setMapOutputValueClass(FloatWritable.class);
-		job.setOutputFormatClass(FileOutputFormat.class);
-
-		FileInputFormat.addInputPath(job, new Path(input));
-		FileOutputFormat.setOutputPath(job, new Path(output));
+  public static void main(String[] args) throws Exception {
+    System.out.println(" -- inside the driver main function");
+   
+    // get the input and output file 
+    SimpleParser parser  = new SimpleParser(args);
+    String input         = parser.get("input");
+    String output        = parser.get("output");
+    int numberOfClusters = parser.getInt("cn");
     
-		System.exit(job.waitForCompletion(true) ? 0 : 1);
-		
-	}
+    System.out.println(" -- ARGS ::" + 
+                       " Input: "    + input  + 
+                       " Output: "   + output +
+                       " clusters Num: " + numberOfClusters);
+
+    // Iteration 0 First we need to assign clusters to all points and create clusters files
+    Configuration cfg  = new Configuration();
+    cfg.setInt("numberOfClusters", numberOfClusters);
+    cfg.set("currBase", output + "/iteration_0");
+    cfg.set("pointsDir", "points");
+    cfg.set("clustersDir", "clusters");
+
+    String currOutput = cfg.get("currBase") + "/" + cfg.get("pointsDir");
+    Optimizedjob initJob = new Optimizedjob(cfg, input, currOutput, "initialize kmeans");  
+    initJob.setClasses(KmeansInitMapper.class, KmeansInitReducer.class, null);
+    initJob.setMapOutputClasses(LongWritable.class, Text.class);
+    initJob.run();    
+
+    // now foreach iteration we need to update the points to cluster map
+    // cluster centers also should be updated 
+    int iteration = 1;
+
+    while (iteration < 10) {
+      // update file pathes 
+      cfg.set("preBase", cfg.get("currBase"));
+      cfg.set("currBase", output + "/iteration_" + iteration);
+     
+      String currInputs = cfg.get("preBase")  + "/" + cfg.get("pointsDir");
+      currOutput = cfg.get("currBase") + "/" + cfg.get("pointsDir");
+      String [] currInputFiles = CommonFileOperations.listAllFiles(currInputs, null, false, "_SUCCESS");
+      System.out.println(" -- input file:" + currInputFiles[0]);
+      Optimizedjob job = new Optimizedjob(cfg, currInputFiles[0], currOutput, "kmeans iteration");
+      for (int i=1; i<currInputFiles.length; ++i) {
+        System.out.println(" -- input file:" + currInputFiles[i]);
+        job.addInput(currInputFiles[i]);
+      }
+      // create a new job using kmeans mapper and reducer
+      job.setClasses(KmeansMapper.class, KmeansReducer.class, null);
+      job.setMapOutputClasses(LongWritable.class, Text.class);
+      job.run();
+      iteration++;
+    }
+  }
 }
 
 

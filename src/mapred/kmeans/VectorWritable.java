@@ -59,5 +59,4 @@ public class VectorWritable extends Configured implements Writable {
   public static void writeVector(DataOutput out, Vector vector) throws IOException {
     new VectorWritable(vector).write(out);
   }
-
 }
